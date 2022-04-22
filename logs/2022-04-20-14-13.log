@@ -1,0 +1,70 @@
+creating /home/fanyx/Pytorch_train_demo/logs/2022-04-20-14-13.log
+------------Model Parameters--------------
+config_file: configs/config_test.yaml
+log_to_file: True
+log_path: /home/fanyx/Pytorch_train_demo/logs
+process_data: False
+train: True
+inference: False
+grid_search: False
+search_random_seed: False
+run_ablation_studies: False
+run_analysis: False
+gpu: 3
+model_type: Net
+dataset: mnist
+checkpoint_path: result/model_save
+train_input_path: None
+test_input_path: None
+save_model_path: result/model_save
+result_path: result
+random_seed: 123456
+save_whole_modle: False
+begin_epoch: 11
+epochs: 13
+early_stop_num: 3
+batch_size: 128
+ratio: 0.8
+learning_rate: 0.0001
+learning_rate_decay_rate: 0.1
+learning_rate_decay_epochs: 5
+logger: <Logger train_log (DEBUG)>
+------------end--------------
+model load to-cuda:3
+******train******
+load checkpoint fromresult/model_save/mnist/Net-model_best_dict.pkl
+load checkpoint fromresult/model_save/mnist/Net-epoch-10.pkl
+Train Epoch: 11 [3712/48000 (8%)]	Loss: 0.049670
+Train Epoch: 11 [7552/48000 (16%)]	Loss: 0.088628
+Train Epoch: 11 [11392/48000 (24%)]	Loss: 0.060660
+Train Epoch: 11 [15232/48000 (32%)]	Loss: 0.030431
+Train Epoch: 11 [19072/48000 (40%)]	Loss: 0.162344
+Train Epoch: 11 [22912/48000 (48%)]	Loss: 0.054787
+Train Epoch: 11 [26752/48000 (56%)]	Loss: 0.014589
+Train Epoch: 11 [30592/48000 (64%)]	Loss: 0.039208
+Train Epoch: 11 [34432/48000 (72%)]	Loss: 0.032994
+Train Epoch: 11 [38272/48000 (80%)]	Loss: 0.043397
+Train Epoch: 11 [42112/48000 (88%)]	Loss: 0.021185
+Train Epoch: 11 [45952/48000 (96%)]	Loss: 0.050513
+Test set: Average loss: 0.061477, Accuracy: 11677/12000 (0.973083)
+saving checkpoint to 'result/model_save/mnist/Net-epoch-11.pkl'
+Epoch:11,run time:17s
+Train Epoch: 12 [3712/48000 (8%)]	Loss: 0.078730
+Train Epoch: 12 [7552/48000 (16%)]	Loss: 0.063339
+Train Epoch: 12 [11392/48000 (24%)]	Loss: 0.102260
+Train Epoch: 12 [15232/48000 (32%)]	Loss: 0.054756
+Train Epoch: 12 [19072/48000 (40%)]	Loss: 0.092419
+Train Epoch: 12 [22912/48000 (48%)]	Loss: 0.062118
+Train Epoch: 12 [26752/48000 (56%)]	Loss: 0.052018
+Train Epoch: 12 [30592/48000 (64%)]	Loss: 0.139187
+Train Epoch: 12 [34432/48000 (72%)]	Loss: 0.049789
+Train Epoch: 12 [38272/48000 (80%)]	Loss: 0.014694
+Train Epoch: 12 [42112/48000 (88%)]	Loss: 0.034309
+Train Epoch: 12 [45952/48000 (96%)]	Loss: 0.040161
+Test set: Average loss: 0.056054, Accuracy: 11696/12000 (0.974667)
+saving checkpoint to 'result/model_save/mnist/Net-epoch-12.pkl'
+Epoch:12,run time:10s
+Train Epoch: 13 [3712/48000 (8%)]	Loss: 0.045571
+Train Epoch: 13 [7552/48000 (16%)]	Loss: 0.028715
+Train Epoch: 13 [11392/48000 (24%)]	Loss: 0.050976
+Train Epoch: 13 [15232/48000 (32%)]	Loss: 0.029152

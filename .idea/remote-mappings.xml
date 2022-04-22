@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="RemoteMappingsManager">
+    <list>
+      <list>
+        <remote-mappings server-id="python@2cf25dc4-6cd0-4ee7-9065-85762f61d51b" />
+        <remote-mappings server-id="python@sftp://fanyx@222.20.94.68:50015/home/fanyx/anaconda3/envs/torch/bin/pydoc3" />
+      </list>
+    </list>
+  </component>
+</project>
