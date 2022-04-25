@@ -13,14 +13,22 @@ random_seed: 123456
 save_whole_modle: False # 模型保存时最好结果保存整个模型
 
 # 训练相关参数
-begin_epoch: 1   # 继续训练
-epochs: 5
+begin_epoch: 8   # 继续训练
+epochs: 10
 early_stop_num: 3 # 连续几次acc不增加就停止训练
 batch_size: 128
 ratio: 0.8 #train/val 比例
-learning_rate: 0.0001
-learning_rate_decay_rate: 0.1
-learning_rate_decay_epochs: 5
+
+# learning rate
+learning_rate: 0.001
+learning_scheduler: True
+warmup_iters: 5  # warm_up steps
+warmup_factor: 0.01 # init lr ratio
+decay_ratio: 0.1 # lr decay ratio
+milestones:
+  - 6
+  - 8
+  - 10
 
 # 多GPU
 distributed: True

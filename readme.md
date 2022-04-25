@@ -33,9 +33,25 @@
     train: CUDA_VISIBLE_DEVICES=1,2 torchrun --nproc_per_node 2  run_train.py --train --config_file configs/config_test.yaml
     inference: CUDA_VISIBLE_DEVICES=1,2 torchrun --nproc_per_node 2  run_train.py --inference --config_file configs/config_test.yaml
     ```
+- 如果使用单GPU进行训练，可以将可见GPU设置为想使用的GPU编号，nproc_per_node设置为1，或者不设置（默认为可见GPU的第一个）
+    ```shell
+    train: CUDA_VISIBLE_DEVICES=1 torchrun  run_train.py --train --config_file configs/config_test.yaml
+    inference: CUDA_VISIBLE_DEVICES=1 torchrun  run_train.py --inference --config_file configs/config_test.yaml
+    ```
 #### 3.参数配置
 - parse_args.py： 一些控制参数，比如运行模式（train/inference）
 - config_test.yaml: 需要根据不同的数据集在命令行指定，包括训练参数等
 
   优先级：config_test.yaml > parse_args.py
 
+  注意：总的batch_size为设置的batch_size*gpu_nums
+
+#### 4. 动态学习率 
+
+ 实现了两种方式的学习率调整策略：
++ warm_up + 余弦退火
++ warm_up + stepRL
+ 
+有一个bug：多GPU训练时，如果中途停止训练，继续进行训练时，开始学习率会变为之前训练的最后一个epoch的学习率，之后恢复正常
+。比如：总共训练epoches=10个，当epoch=5时训练停止，继续训练时，epoch=6的学习率与epoch=5的学习率相同
+  （实在不会改了，估计影响不会太大）

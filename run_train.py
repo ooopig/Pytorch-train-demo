@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
+from parse_args import args
 import os
 import shutil
 import time
+from math import sqrt
+
 
 import torch
 import torch.nn as nn
@@ -12,8 +15,10 @@ from torch.utils.data import DataLoader,distributed,BatchSampler
 from torch.utils.data import random_split
 from torchvision import datasets
 from torchvision.transforms import transforms
+
+from src.lr import WarmupCosineLR, WarmupMultiStepLR
 from src.models.mnist_net import Net
-from parse_args import args
+
 from utils import logger
 from utils.yaml_utils import match
 from utils.distributed_utils import init_distributed_mode, reduce_value, cleanup
@@ -188,6 +193,7 @@ if __name__ == '__main__':
     args.logger = logger.log_creater(args.log_path, args.log_to_file)
     if torch.cuda.is_available() is False:
         raise EnvironmentError("not find Gpu device for training")
+
     init_distributed_mode(args)
     rank = args.rank
     if rank == 0:
@@ -197,8 +203,14 @@ if __name__ == '__main__':
     model = Net(args)
     model = model.to(DEVICE)
     args.logger.info('model load to-{}'.format(DEVICE))
-    args.learning_rate *= args.world_size # 学习率根据并行GPU数目倍增
-    optimizer = optim.Adam(model.parameters(),lr=args.learning_rate)
+    args.learning_rate *= sqrt(args.world_size) # 学习率根据并行GPU数目倍增,n为GPU数目，lr变为n的平方根倍
+    optimizer = optim.Adam([{'params': model.parameters(), 'initial_lr': args.learning_rate}],lr=args.learning_rate)
+
+    lr_scheduler = WarmupCosineLR(optimizer=optimizer, lr_min=1e-6, lr_max=args.learning_rate, warmup_iters=args.warmup_iters,
+                                  T_max=args.epochs,warmup_factor= args.warmup_factor,
+                                  last_epoch=args.begin_epoch-1)
+    # lr_scheduler = WarmupMultiStepLR(optimizer=optimizer,milestones=args.milestones,gamma=args.decay_ratio,last_epoch=args.begin_epoch-1,
+    #                                 warmup_factor=args.warmup_factor, warmup_iters=args.warmup_iters)
 
     if args.syncBN:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(DEVICE)
@@ -210,11 +222,6 @@ if __name__ == '__main__':
         print_all_parameters(args)
 
     if args.train:
-        # 1. 获取数据：get_train_data，get_test_data
-        # 2. 创建data_loader
-        # 3. 初始化模型
-        # 4. 训练
-        # 5. 验证
         if rank == 0: args.logger.info('******train******')
         best_acc = get_best_acc(args)
         acc_deacy = 0
@@ -236,7 +243,6 @@ if __name__ == '__main__':
             init_checkpoint = load_checkpoint(args, os.path.join(init_model_dict_path, '{}-epoch-0.pkl'.format(args.model_type)))
             model.load_state_dict(init_checkpoint['model_state_dict'])
 
-
         # 训练
         for epoch in range(args.begin_epoch, args.epochs+1):
             if rank == 0:
@@ -253,14 +259,19 @@ if __name__ == '__main__':
                     acc_deacy = 0
                     save_checkpoint(args, model, optimizer, save_path, epoch, acc, loss, is_best=True)
                 else:
-                    acc+=1
+                    acc += 1
                     # early stoping
                     if acc == args.early_stop_num:
                         args.logger.info('early stopping')
                         break
                     save_checkpoint(args, model, optimizer, save_path, epoch, acc, loss, is_best=False)
                 end_time = time.time()
-                args.logger.info('Epoch:{},run time:{}s'.format(epoch, int(end_time-begin_time)))
+                args.logger.info('Epoch:{} run time:{}s lr:{} acc:{} loss:{}'.format(epoch, int(end_time-begin_time),
+                                                                                     optimizer.param_groups[0]['lr']
+                                                                                     ,acc,loss))
+            # 动态改变学习率
+            if args.learning_scheduler:
+                lr_scheduler.step()
 
         cleanup()
     elif args.inference:
