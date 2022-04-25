@@ -30,13 +30,13 @@
 #### 2.启动方式
 - 命令行启动：使用pytorch提供的torchrun进行启动，具体信息可查看[torchrun](https://pytorch.org/docs/stable/elastic/run.html#module-torch.distributed.run)
     ```shell
-    train: CUDA_VISIBLE_DEVICES=1,2 torchrun --nproc_per_node 2  run_train.py --train --config_file configs/config_test.yaml
-    inference: CUDA_VISIBLE_DEVICES=1,2 torchrun --nproc_per_node 2  run_train.py --inference --config_file configs/config_test.yaml
+    CUDA_VISIBLE_DEVICES=1,2 torchrun --nproc_per_node 2  run_train.py --train --config_file configs/config_test.yaml  # train
+    CUDA_VISIBLE_DEVICES=1,2 torchrun --nproc_per_node 2  run_train.py --inference --config_file configs/config_test.yaml  # inference
     ```
 - 如果使用单GPU进行训练，可以将可见GPU设置为想使用的GPU编号，nproc_per_node设置为1，或者不设置（默认为可见GPU的第一个）
     ```shell
-    train: CUDA_VISIBLE_DEVICES=1 torchrun  run_train.py --train --config_file configs/config_test.yaml
-    inference: CUDA_VISIBLE_DEVICES=1 torchrun  run_train.py --inference --config_file configs/config_test.yaml
+    CUDA_VISIBLE_DEVICES=1 torchrun  run_train.py --train --config_file configs/config_test.yaml # train
+    CUDA_VISIBLE_DEVICES=1 torchrun  run_train.py --inference --config_file configs/config_test.yaml # inference
     ```
 #### 3.参数配置
 - parse_args.py： 一些控制参数，比如运行模式（train/inference）
