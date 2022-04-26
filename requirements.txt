@@ -1,0 +1,6 @@
+matplotlib==2.1.2
+numpy==1.21.2
+pandas==1.4.2
+PyYAML==6.0
+torch==1.11.0
+torchvision==0.12.0
