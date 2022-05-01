@@ -21,6 +21,7 @@ ratio: 0.8 #train/val 比例
 
 # learning rate
 learning_rate: 0.001
+multiplication_lr: true # 当使用多GPU时，lr变为n的开平方倍（n为GPU数目）
 learning_scheduler: True
 warmup_iters: 5  # warm_up steps
 warmup_factor: 0.01 # init lr ratio

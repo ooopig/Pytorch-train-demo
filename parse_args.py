@@ -28,6 +28,8 @@ parser.add_argument('--train', action='store_true',
                     help='train src (default: False)')
 parser.add_argument('--inference', action='store_true',
                     help=' inference src (default: False)')
+parser.add_argument('--test', action='store_true',
+                    help='for test(default: False)')
 parser.add_argument('--grid_search', action='store_true',
                     help='run grid_search')
 parser.add_argument('--search_random_seed', action='store_true',
@@ -37,11 +39,15 @@ parser.add_argument('--run_ablation_studies', action='store_true',
 parser.add_argument('--run_analysis', action='store_true',
                     help='run algorithm analysis and print intermediate results (default: False)')
 
+# 单GPU
+parser.add_argument('--gpu', type=int,default=-1)
+
 # 设备，多GPU
 # 系统会自动分配
 parser.add_argument('--device', type=str, default='cuda',help='gpu device (default: 0) or cpu')
 # 开启的进程数，不用设置，会根据nproc_per_node自动设置
-# parser.add_argument('--world-size', type=int, default=4,help='分布式进程数目')
+parser.add_argument('--world-size', type=int, default=1,help='分布式进程数目')
 parser.add_argument('--dist-url', type=str, default='env://',help='url to set up distributed training')
+parser.add_argument('--rank', type=int, default=0)
 
 args = parser.parse_args()

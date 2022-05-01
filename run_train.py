@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from collections import OrderedDict
+
 from parse_args import args
 import os
 import shutil
@@ -11,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.distributed as dist
-from torch.utils.data import DataLoader,distributed,BatchSampler
+from torch.utils.data import DataLoader,distributed,BatchSampler,Sampler
 from torch.utils.data import random_split
 from torchvision import datasets
 from torchvision.transforms import transforms
@@ -62,7 +64,7 @@ def save_checkpoint(args, model, optimizer, save_path='', epoch=0, acc=0, loss=0
     checkpoint_dict['optimizer_state_dict'] = optimizer.state_dict()
     out_tar = os.path.join(save_path, '{}-epoch-{}.pkl'.format(args.model_type, epoch))
     torch.save(checkpoint_dict, out_tar)
-    args.logger.info('saving checkpoint to \'{}\''.format(out_tar))
+    if args.rank == 0: args.logger.info('saving checkpoint to \'{}\''.format(out_tar))
     if is_best:
         best_dict_path = os.path.join(save_path, '{}-model_best_dict.pkl'.format(args.model_type))
         shutil.copyfile(out_tar, best_dict_path)
@@ -79,7 +81,18 @@ def load_checkpoint(args, input_file):
     if os.path.exists(input_file):
         if args.rank == 0:
             args.logger.info('load checkpoint from {}'.format(input_file))
-        checkpoint = torch.load(input_file, map_location="cuda:{}".format(args.local_rank))
+        if args.gpu == -1:
+            checkpoint = torch.load(input_file, map_location="cuda:{}".format(args.local_rank))
+        else:
+            checkpoint = torch.load(input_file, map_location="cuda:{}".format(args.gpu))
+
+        # 单GPU加载多GPU模型问题 去掉权重字典键名中的"module"，以保证模型的统一性
+        if 'module' in next(iter(checkpoint)):
+            new_state_dict = OrderedDict()
+            for k, v in checkpoint['model_state_dict'].items():
+                    name = k[7:]  # module字段在最前面，从第7个字符开始就可以去掉module
+                    new_state_dict[name] = v  # 新字典的key值对应的value一一对应
+            checkpoint['model_state_dict'] = new_state_dict
         return checkpoint
     else:
         if args.rank == 0:
@@ -115,25 +128,34 @@ def split_train_dataset(epoch,batch_size: int, ratio: float) -> (DataLoader, Dat
     train_size = int(len(train_dataset) * ratio)
     val_size = int(len(train_dataset) - train_size)
     train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
-    # 给每个rank对应的进程分配训练的样本索引
-    train_sampler = distributed.DistributedSampler(train_dataset)
-    train_sampler.set_epoch(epoch)
-    val_sampler = distributed.DistributedSampler(val_dataset,shuffle=False)
-    train_batch_sampler = BatchSampler(train_sampler,batch_size=batch_size,drop_last=True)
-    nw = min([os.cpu_count(),batch_size if batch_size > 1 else 0, 8]) # number of workers
 
-    train_loader = DataLoader(dataset=train_dataset,batch_sampler=train_batch_sampler, num_workers=nw
-                              , pin_memory=args.pin_memory)
-    valid_loader = DataLoader(dataset=val_dataset, batch_size=batch_size,
-                              drop_last=True, sampler=val_sampler, num_workers=nw
-                              ,shuffle=False, pin_memory=args.pin_memory)
+    # 给每个rank对应的进程分配训练的样本索引
+    if args.gpu == -1:
+        train_sampler = distributed.DistributedSampler(train_dataset)
+        train_sampler.set_epoch(epoch)
+        val_sampler = distributed.DistributedSampler(val_dataset,shuffle=False)
+        train_batch_sampler = BatchSampler(train_sampler,batch_size=batch_size,drop_last=True)
+
+        nw = min([os.cpu_count(),batch_size if batch_size > 1 else 0, 8]) # number of workers
+        train_loader = DataLoader(dataset=train_dataset,batch_sampler=train_batch_sampler, num_workers=nw
+                                  , pin_memory=args.pin_memory)
+        valid_loader = DataLoader(dataset=val_dataset, batch_size=batch_size,
+                                  drop_last=True, sampler=val_sampler, num_workers=nw
+                                  ,shuffle=False, pin_memory=args.pin_memory)
+    else:
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, drop_last=True,
+                                  shuffle=False,pin_memory=args.pin_memory)
+        valid_loader = DataLoader(dataset=val_dataset, batch_size=batch_size,
+                                  drop_last=True, shuffle=False, pin_memory=args.pin_memory)
     return train_loader, valid_loader
 def split_test_dataset( batch_size: int) -> ( DataLoader):
     test_dataset = datasets.MNIST(root='data/', train=False,
                                   transform=transforms.ToTensor(), download=True)
-    test_sampler = distributed.DistributedSampler(test_dataset,shuffle=False,drop_last=True)
-    test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, sampler=test_sampler)
-
+    if args.gpu == -1:
+        test_sampler = distributed.DistributedSampler(test_dataset,shuffle=False,drop_last=True)
+        test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, sampler=test_sampler)
+    else:
+        test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size,drop_last=False,shuffle=False)
     return test_loader
 def train_step(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -166,10 +188,10 @@ def train(args, model, optimizer, lr_scheduler=None):
             checkpoint = load_checkpoint(args, latest_model_dict_path)
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    else:
+    elif args.gpu == -1:
         # 保存第一块GPU参数，其他GPU载入相同参数，必须保证所有参与训练的GPU参数是完全一致的
         init_model_dict_path = os.path.join(args.checkpoint_path, args.dataset)
-        if rank == 0:
+        if args.rank == 0:
             save_checkpoint(args, model, optimizer, init_model_dict_path)
         dist.barrier()  # 用dist.barrier()来同步不同进程间的快慢
         init_checkpoint = load_checkpoint(args,
@@ -178,13 +200,13 @@ def train(args, model, optimizer, lr_scheduler=None):
 
     # 训练
     for epoch in range(args.begin_epoch, args.epochs + 1):
-        if rank == 0:
+        if args.rank == 0:
             begin_time = time.time()
         train_loader, val_loader = split_train_dataset(epoch, args.batch_size, args.ratio)
         train_step(args, model, DEVICE, train_loader, optimizer, epoch)
         acc, loss = inference(args, model, DEVICE, val_loader)
 
-        if rank == 0:
+        if args.rank == 0:
             save_path = os.path.join(args.checkpoint_path, args.dataset)
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
@@ -192,11 +214,12 @@ def train(args, model, optimizer, lr_scheduler=None):
                 acc_deacy = 0
                 save_checkpoint(args, model, optimizer, save_path, epoch, acc, loss, is_best=True)
             else:
-                acc += 1
+                acc_deacy += 1
                 # early stoping
-                if acc == args.early_stop_num:
+                if acc_deacy == args.early_stop_num:
                     args.logger.info('early stopping')
-                    break
+                    cleanup()
+                    exit(1)
                 save_checkpoint(args, model, optimizer, save_path, epoch, acc, loss, is_best=False)
             end_time = time.time()
             args.logger.info('Epoch:{} run time:{}s lr:{} acc:{} loss:{}'.format(epoch, int(end_time - begin_time),
@@ -205,8 +228,8 @@ def train(args, model, optimizer, lr_scheduler=None):
         # 动态改变学习率
         if args.learning_scheduler:
             lr_scheduler.step()
-
-    cleanup()
+    if args.gpu == -1:
+        cleanup()
 
 def inference(args, model, device, test_loader):
     model.eval()
@@ -236,8 +259,13 @@ def inference(args, model, device, test_loader):
     return acc, test_loss
 def get_best_acc(args):
     acc = 0.0
-    if args.begin_epoch > 1:
-        best_model_dict_path  = os.path.join(args.checkpoint_path,args.dataset, '{}-model_best_dict.pkl'.format(args.model_type))
+    # if args.begin_epoch > 1:
+    #     best_model_dict_path  = os.path.join(args.checkpoint_path,args.dataset, '{}-model_best_dict.pkl'.format(args.model_type))
+    #     checkpoint = load_checkpoint(args, best_model_dict_path)
+    #     acc = checkpoint["acc"]
+    best_model_dict_path = os.path.join(args.checkpoint_path, args.dataset,
+                                        '{}-model_best_dict.pkl'.format(args.model_type))
+    if os.path.exists(best_model_dict_path):
         checkpoint = load_checkpoint(args, best_model_dict_path)
         acc = checkpoint["acc"]
     if args.rank == 0:
@@ -249,28 +277,32 @@ if __name__ == '__main__':
     args.logger = logger.log_creater(args.log_path, args.log_to_file)
     if torch.cuda.is_available() is False:
         raise EnvironmentError("not find Gpu device for training")
-
-    init_distributed_mode(args)
-    rank = args.rank
-    if rank == 0:
+    if args.rank == 0:
         init_path(args)
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if args.gpu == -1 :
+        init_distributed_mode(args)
+        DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        args.logger.info('use single gpu {}'.format(args.gpu))
+        DEVICE = torch.device("cuda:{}".format(args.gpu) if torch.cuda.is_available() else "cpu")
     # Model
     model = Net(args)
     model = model.to(DEVICE)
     args.logger.info('model load to-{}'.format(DEVICE))
 
-    if args.syncBN:
-        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(DEVICE)
-    # 转为DDP模型
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank])
-
+    if args.gpu==-1:
+        if args.syncBN:
+            model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(DEVICE)
+        # 转为DDP模型
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank])
     # 在第一个进程中打印参数
-    if rank == 0:
+    if args.rank == 0:
         print_all_parameters(args)
 
     if args.train:
-        args.learning_rate *= sqrt(args.world_size)  # 学习率根据并行GPU数目倍增,n为GPU数目，lr变为n的平方根倍
+        if args.multiplication_lr:
+            args.learning_rate *= sqrt(args.world_size)  # 学习率根据并行GPU数目倍增,n为GPU数目，lr变为n的平方根倍
         optimizer = optim.Adam([{'params': model.parameters(), 'initial_lr': args.learning_rate}],
                                lr=args.learning_rate)
 
@@ -293,8 +325,23 @@ if __name__ == '__main__':
             model.load_state_dict(checkpoint['model_state_dict'])
         test_loader = split_test_dataset(args.batch_size)
         acc, loss = inference(args, model, DEVICE, test_loader)
+    elif args.test:
+        args.learning_rate *= sqrt(args.world_size)  # 学习率根据并行GPU数目倍增,n为GPU数目，lr变为n的平方根倍
+        optimizer = optim.Adam([{'params': model.parameters(), 'initial_lr': args.learning_rate}],
+                               lr=args.learning_rate)
+
+        lr_scheduler = WarmupCosineLR(optimizer=optimizer, lr_min=1e-6, lr_max=args.learning_rate,
+                                      warmup_iters=args.warmup_iters,
+                                      T_max=args.epochs, warmup_factor=args.warmup_factor,
+                                      last_epoch=args.begin_epoch - 1)
+        test_model_dict_path = os.path.join(args.checkpoint_path, args.dataset,
+                                              '{}-epoch-{}.pkl'.format(args.model_type, 10))
+        if os.path.exists(test_model_dict_path):
+            checkpoint = load_checkpoint(args, test_model_dict_path)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     else:
-        if rank == 0:
+        if args.rank == 0:
             args.logger.info('请选择正确的模式(train/inference)')
             exit(1)
 

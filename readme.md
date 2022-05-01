@@ -33,10 +33,10 @@
     CUDA_VISIBLE_DEVICES=1,2 torchrun --nproc_per_node 2  run_train.py --train --config_file configs/config_test.yaml  # train
     CUDA_VISIBLE_DEVICES=1,2 torchrun --nproc_per_node 2  run_train.py --inference --config_file configs/config_test.yaml  # inference
     ```
-- 如果使用单GPU进行训练，可以将可见GPU设置为想使用的GPU编号，nproc_per_node设置为1，或者不设置（默认为可见GPU的第一个）
+- 如果使用单GPU进行训练，可以直接使用 python 命令,必须指定使用的GPU编号
     ```shell
-    CUDA_VISIBLE_DEVICES=1 torchrun  run_train.py --train --config_file configs/config_test.yaml # train
-    CUDA_VISIBLE_DEVICES=1 torchrun  run_train.py --inference --config_file configs/config_test.yaml # inference
+    python  run_train.py --train --config_file configs/config_test.yaml --gpu 0      # train
+    python  run_train.py --inference --config_file configs/config_test.yaml --gpu 0  # inference
     ```
 #### 3.参数配置
 - parse_args.py： 一些控制参数，比如运行模式（train/inference）
