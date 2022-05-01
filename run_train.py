@@ -326,6 +326,9 @@ if __name__ == '__main__':
         test_loader = split_test_dataset(args.batch_size)
         acc, loss = inference(args, model, DEVICE, test_loader)
     elif args.test:
+        '''
+        功能测试所用，可删除
+        '''
         args.learning_rate *= sqrt(args.world_size)  # 学习率根据并行GPU数目倍增,n为GPU数目，lr变为n的平方根倍
         optimizer = optim.Adam([{'params': model.parameters(), 'initial_lr': args.learning_rate}],
                                lr=args.learning_rate)
