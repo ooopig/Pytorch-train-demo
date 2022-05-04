@@ -50,7 +50,9 @@
 
  实现了两种方式的学习率调整策略：
 + warm_up + 余弦退火
+  ![img.png](img.png)
 + warm_up + stepRL
+  ![img_1.png](img_1.png)
  
 有一个bug：多GPU训练时，如果中途停止训练，继续进行训练时，开始学习率会变为之前训练的最后一个epoch的学习率，之后恢复正常
 。比如：总共训练epoches=10个，当epoch=5时训练停止，继续训练时，epoch=6的学习率与epoch=5的学习率相同
