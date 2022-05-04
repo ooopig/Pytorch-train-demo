@@ -29,8 +29,8 @@ def lr_test():
     LR = 0.001
     model = Net()
     optimizer = Adam([{'params': model.parameters(), 'initial_lr': LR}] ,lr = LR)
-    # cosine_lr = WarmupCosineLR(optimizer, 1e-6, 1e-3, warm_up, epochs, 0.01,last_epoch=begin_epoch-1)
-    cosine_lr = WarmupMultiStepLR(optimizer, [7,9], warmup_iters=warm_up, last_epoch=begin_epoch-1)
+    cosine_lr = WarmupCosineLR(optimizer, 1e-6, 1e-3, warm_up, epochs, 0.01,last_epoch=begin_epoch-1)
+    # cosine_lr = WarmupMultiStepLR(optimizer, [7,9], warmup_iters=warm_up, last_epoch=begin_epoch-1)
 
     lrs = []
     for epoch in range(begin_epoch,epochs+1):

@@ -18,6 +18,7 @@
 │           └── Net-model_best_dict.pkl
 ├── run_train.py # 主程序入口文件
 ├── src
+│   ├── lr.py  # 动态学习率
 │   └── models # 自定义模型
 │       ├── mnist_net.py
 └── utils
@@ -26,7 +27,6 @@
     ├── logger.py # 日志配置
     └── yaml_utils.py # yaml参数读取
 ```
-
 #### 2.启动方式
 - 命令行启动：使用pytorch提供的torchrun进行启动，具体信息可查看[torchrun](https://pytorch.org/docs/stable/elastic/run.html#module-torch.distributed.run)
     ```shell
