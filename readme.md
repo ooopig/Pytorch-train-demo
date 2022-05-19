@@ -38,6 +38,11 @@
     python  run_train.py --train --config_file configs/config_test.yaml --gpu 0      # train
     python  run_train.py --inference --config_file configs/config_test.yaml --gpu 0  # inference
     ```
+- 新添加了run.py文件仅支持单gpu，可以使用run.py
+  ```shell
+    python  run.py --train --config_file configs/config_test.yaml --gpu 0      # train
+    python  run.py --inference --config_file configs/config_test.yaml --gpu 0  # inference
+  ```
 #### 3.参数配置
 - parse_args.py： 一些控制参数，比如运行模式（train/inference）
 - config_test.yaml: 需要根据不同的数据集在命令行指定，包括训练参数等
